@@ -1,0 +1,1652 @@
+﻿<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>KKU PARKING - ระบบจองที่จอดรถ มหาวิทยาลัยขอนแก่น</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brick: '#A5483A',
+          'brick-light': '#C96A50',
+          accent: '#FFB74D',
+          surface: '#F7F5F2',
+          text: '#2E2E2E'
+        }
+      }
+    }
+  }
+</script>
+<style>
+  * { font-family: 'Prompt', sans-serif; }
+  html, body { overflow-x: hidden; }
+  .script-font { font-family: 'Dancing Script', cursive; }
+
+
+  .page { display: none; opacity: 0; }
+  .page.active { display: flex; flex-direction: column; opacity: 1; }
+
+
+  .hero-gradient { background: radial-gradient(circle at 25% 15%, #C96A50 0%, #A5483A 45%, #5f261f 100%); }
+  .dot-pattern { background-image: radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px); background-size: 22px 22px; }
+  .glass-white { background: rgba(255,255,255,0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.5); }
+
+
+  .flower-deco { position:absolute; font-size:2.4rem; opacity:0.22; pointer-events:none; user-select:none; line-height:1; }
+
+
+  .ripple { position: relative; overflow: hidden; }
+  .ripple::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle, rgba(255,255,255,0.35) 10%, transparent 70%);
+    transform: scale(0); opacity: 0; transition: transform 0.5s, opacity 0.4s;
+  }
+  .ripple:active::after { transform: scale(4); opacity: 1; transition: transform 0s; }
+
+
+  .card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(165,72,58,0.15); }
+
+
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  .fade-up { animation: fadeUp 0.45s ease forwards; }
+
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-6px); }
+    40%,80% { transform: translateX(6px); }
+  }
+  .shake { animation: shake 0.4s ease; }
+
+
+  @keyframes pulseDot { 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
+  .pulse-dot { animation: pulseDot 2s infinite; }
+
+
+  .input-field { transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
+  .input-field:focus { border-color: #A5483A; box-shadow: 0 0 0 3px rgba(165,72,58,0.15); }
+  .input-field.error { border-color: #ef4444 !important; background: #fef2f2; }
+  .field-error-msg { display: none; color: #ef4444; font-size: 12px; margin-top: 4px; }
+  .field-error-msg.show { display: block; }
+
+
+  .tab-pill { border:2px solid #A5483A; color:#A5483A; background:#fff; border-radius:9999px; padding:0.55rem 1rem; font-weight:600; font-size:0.8rem; transition:all .2s; }
+  .tab-pill.active { background:#A5483A; color:#fff; box-shadow:0 4px 12px rgba(165,72,58,0.35); }
+
+
+  .lang-btn { transition: all 0.2s ease; }
+  .lang-btn.active { background: white; color: #A5483A; }
+  .lang-btn:not(.active) { color: rgba(255,255,255,0.8); }
+
+
+  .btn-pill-filled { background:#A5483A; color:#fff; border-radius:9999px; font-weight:600; box-shadow:0 8px 20px rgba(165,72,58,0.3); transition: transform 0.15s, background 0.2s; }
+  .btn-pill-filled:hover { background:#8f3c30; }
+  .btn-pill-outline { background:#fff; color:#A5483A; border:2px solid #A5483A; border-radius:9999px; font-weight:600; transition: all 0.2s; }
+  .btn-pill-outline:hover { background:#fdf1ee; }
+
+
+  .icon-badge { border-radius:9999px; background:rgba(165,72,58,0.1); display:flex; align-items:center; justify-content:center; color:#A5483A; flex-shrink:0; }
+
+
+  .check-square { width:20px; height:20px; border-radius:6px; border:2px solid #A5483A; appearance:none; cursor:pointer; position:relative; background:#fff; flex-shrink:0; }
+  .check-square:checked { background:#A5483A; }
+  .check-square:checked::after { content:'✓'; position:absolute; color:white; font-size:12px; font-weight:700; left:2.5px; top:-2px; }
+
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(165,72,58,0.25);
+    border-top-color: #A5483A;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+
+  .toast {
+    position: fixed; bottom: 90px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 200; max-width: 90%;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+
+  .autocomplete-item { transition: background 0.15s; }
+  .autocomplete-item:hover { background: #f3e8e5; }
+  #map-container { height: 100%; width: 100%; }
+  .bottom-nav-item { transition: color 0.2s; }
+  .bottom-nav-item.active-nav { color: #A5483A; }
+
+
+  .avatar-circle { display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, #A5483A, #C96A50); color:white; font-weight:600; }
+
+
+  .toggle-switch { width:40px; height:24px; border-radius:9999px; position:relative; cursor:pointer; transition: background 0.2s; }
+  .toggle-switch .knob { position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:9999px; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.3); transition: transform 0.2s; }
+  .toggle-switch.on { background:#A5483A; }
+  .toggle-switch.on .knob { transform: translateX(16px); }
+  .toggle-switch.off { background:#d1d5db; }
+
+
+  .snap-x { scroll-snap-type: x mandatory; }
+  .snap-item { scroll-snap-align: start; }
+
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb { background:#d9c9c4; border-radius:9999px; }
+</style>
+</head>
+<body class="w-full min-h-screen bg-surface text-text overflow-x-hidden">
+
+
+<!-- ============ LOGIN PAGE ============ -->
+<section id="page-login" class="page active min-h-screen w-full">
+  <!-- Hero top -->
+  <div class="relative hero-gradient dot-pattern px-6 pt-10 pb-16 flex flex-col items-center text-center overflow-hidden">
+    <span class="flower-deco" style="top:8px; left:6px;">🌸</span>
+    <span class="flower-deco" style="top:30px; right:10px; font-size:1.8rem;">🌸</span>
+    <span class="flower-deco" style="bottom:-6px; left:30%; font-size:1.6rem;">🌸</span>
+
+
+    <div class="absolute top-4 right-4 z-20 flex gap-1 bg-black/25 rounded-full p-1 backdrop-blur-sm">
+      <button type="button" data-lang="th" class="lang-btn px-3 py-1.5 rounded-full text-xs font-semibold">TH</button>
+      <button type="button" data-lang="en" class="lang-btn px-3 py-1.5 rounded-full text-xs font-semibold">EN</button>
+    </div>
+
+
+    <div class="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg mb-3 mt-2">
+      <i data-lucide="car" class="text-brick" style="width:30px;height:30px"></i>
+    </div>
+    <h1 class="text-white font-bold text-2xl">KKU PARKING</h1>
+    <p id="login-tagline" class="text-white/80 text-sm mt-1"></p>
+  </div>
+
+
+  <!-- White bottom sheet -->
+  <div class="relative flex-1 bg-white rounded-t-[2.25rem] -mt-8 px-6 pt-8 pb-8 shadow-2xl z-10 fade-up">
+    <div class="flex gap-2 mb-6">
+      <button type="button" data-tab="student" class="tab-pill active flex-1" data-i18n="tabStudent"></button>
+      <button type="button" data-tab="email" class="tab-pill flex-1" data-i18n="tabEmail"></button>
+    </div>
+
+
+    <form id="login-form" novalidate class="space-y-4">
+      <div id="field-student" class="field-group">
+        <label class="block text-text/70 text-xs font-medium mb-1.5" data-i18n="labelStudentId"></label>
+        <div class="relative flex items-center gap-2 border border-gray-200 rounded-2xl px-2 py-1.5 focus-within:border-brick transition-colors">
+          <div class="icon-badge w-9 h-9"><i data-lucide="id-card" style="width:16px;height:16px"></i></div>
+          <input id="input-student-id" type="text" inputmode="numeric" maxlength="12" data-i18n-placeholder="placeholderStudentId"
+            class="input-field flex-1 py-1.5 pr-2 text-sm outline-none border-none bg-transparent">
+        </div>
+        <p id="err-student-id" class="field-error-msg"></p>
+      </div>
+
+
+      <div id="field-email" class="field-group hidden">
+        <label class="block text-text/70 text-xs font-medium mb-1.5" data-i18n="labelEmail"></label>
+        <div class="relative flex items-center gap-2 border border-gray-200 rounded-2xl px-2 py-1.5 focus-within:border-brick transition-colors">
+          <div class="icon-badge w-9 h-9"><i data-lucide="mail" style="width:16px;height:16px"></i></div>
+          <input id="input-email" type="email" data-i18n-placeholder="placeholderEmail"
+            class="input-field flex-1 py-1.5 pr-2 text-sm outline-none border-none bg-transparent">
+        </div>
+        <p id="err-email" class="field-error-msg"></p>
+      </div>
+
+
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-text/70 text-xs font-medium" data-i18n="labelPassword"></label>
+          <button type="button" id="forgot-link" class="text-brick text-xs font-medium hover:underline" data-i18n="forgotPassword"></button>
+        </div>
+        <div class="relative flex items-center gap-2 border border-gray-200 rounded-2xl px-2 py-1.5 focus-within:border-brick transition-colors">
+          <div class="icon-badge w-9 h-9"><i data-lucide="lock" style="width:16px;height:16px"></i></div>
+          <input id="input-password" type="password" data-i18n-placeholder="placeholderPassword"
+            class="input-field flex-1 py-1.5 pr-2 text-sm outline-none border-none bg-transparent">
+          <button type="button" id="toggle-password" class="text-text/40 hover:text-text/70 pr-2">
+            <i data-lucide="eye" style="width:18px;height:18px"></i>
+          </button>
+        </div>
+        <p id="err-password" class="field-error-msg"></p>
+      </div>
+
+
+      <label class="flex items-center gap-2 cursor-pointer select-none pt-1">
+        <input id="remember-me" type="checkbox" class="check-square">
+        <span class="text-text/60 text-xs" data-i18n="rememberMe"></span>
+      </label>
+
+
+      <button type="submit" id="submit-btn"
+        class="ripple btn-pill-filled w-full py-3.5 text-sm flex items-center justify-center gap-2 mt-2">
+        <span id="submit-text" data-i18n="submitLogin"></span>
+        <i data-lucide="arrow-right" style="width:16px;height:16px"></i>
+      </button>
+
+
+      <div class="flex items-center gap-3 py-1">
+        <div class="flex-1 h-px bg-gray-200"></div>
+        <span class="text-text/40 text-xs" data-i18n="orDivider"></span>
+        <div class="flex-1 h-px bg-gray-200"></div>
+      </div>
+
+
+      <button type="button" id="guest-btn" class="ripple btn-pill-outline w-full py-3 text-sm" data-i18n="guestBtn"></button>
+    </form>
+
+
+    <p class="text-text/40 text-xs text-center mt-6">
+      <span data-i18n="termsPrefix"></span> <span class="underline cursor-pointer text-brick" data-i18n="termsLink"></span>
+    </p>
+
+
+    <div class="text-center mt-6 relative">
+      <p class="script-font text-brick text-lg">KKU Together for a better tomorrow</p>
+      <span class="flower-deco" style="bottom:-10px; left:10%; font-size:1.3rem;">🌸</span>
+      <span class="flower-deco" style="bottom:-10px; right:10%; font-size:1.3rem;">🌸</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ HOME PAGE ============ -->
+<section id="page-home" class="page min-h-screen w-full pb-28">
+  <!-- Hero header -->
+  <div class="relative hero-gradient dot-pattern rounded-b-[2rem] px-5 pt-6 pb-14 overflow-hidden">
+    <span class="flower-deco" style="top:4px; left:4px; font-size:1.8rem;">🌸</span>
+    <span class="flower-deco" style="top:10px; right:60px; font-size:1.4rem;">🌸</span>
+
+
+    <div class="flex items-center justify-between mb-1 relative z-10">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
+          <i data-lucide="car" class="text-brick" style="width:20px;height:20px"></i>
+        </div>
+        <div>
+          <p class="text-white font-bold text-sm leading-tight">KKU</p>
+          <p class="text-white/70 text-[10px] leading-tight" data-i18n="uniNameShort"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1 bg-black/25 rounded-full p-1">
+          <button type="button" data-lang="th" class="lang-btn px-2.5 py-1 rounded-full text-[11px] font-semibold">TH</button>
+          <button type="button" data-lang="en" class="lang-btn px-2.5 py-1 rounded-full text-[11px] font-semibold">EN</button>
+        </div>
+        <button data-page="page-notifications" class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center relative">
+          <i data-lucide="bell" style="width:16px;height:16px" class="text-white"></i>
+          <span id="notif-dot" class="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full hidden"></span>
+        </button>
+        <button data-page="page-profile" class="w-9 h-9 rounded-full overflow-hidden border-2 border-white/40 avatar-circle text-xs" id="header-avatar">?</button>
+      </div>
+    </div>
+    <h2 id="home-greeting" class="text-white font-bold text-lg mt-4 relative z-10"></h2>
+    <p class="text-white/70 text-xs relative z-10" data-i18n="homeSubtitle"></p>
+  </div>
+
+
+  <!-- Floating search card -->
+  <div class="px-5 -mt-8 relative z-20">
+    <div class="bg-white rounded-2xl shadow-lg p-3 flex items-center gap-3">
+      <div class="icon-badge w-10 h-10 flex-shrink-0"><i data-lucide="search" style="width:18px;height:18px"></i></div>
+      <input id="search-input" type="text" data-i18n-placeholder="searchPlaceholder" class="flex-1 outline-none text-sm bg-transparent min-w-0" autocomplete="off">
+      <button class="icon-badge w-9 h-9 flex-shrink-0 bg-brick text-white" style="background:#A5483A;color:white" type="button" title="filter">
+        <i data-lucide="sliders-horizontal" style="width:16px;height:16px"></i>
+      </button>
+    </div>
+    <div id="autocomplete-list" class="mt-2 bg-white rounded-2xl shadow-xl overflow-hidden z-50 hidden max-h-60 overflow-y-auto"></div>
+  </div>
+
+
+  <!-- Stat cards -->
+  <div class="px-5 mt-5 grid grid-cols-2 gap-3">
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3 card-hover fade-up">
+      <div class="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0"><i data-lucide="check-circle-2" class="text-green-600" style="width:20px;height:20px"></i></div>
+      <div class="min-w-0"><p id="stat-available" class="text-xl font-bold text-green-700">0</p><p class="text-[11px] text-text/50 truncate" data-i18n="statAvailable"></p></div>
+    </div>
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3 card-hover fade-up">
+      <div class="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"><i data-lucide="car" class="text-red-500" style="width:20px;height:20px"></i></div>
+      <div class="min-w-0"><p id="stat-occupied" class="text-xl font-bold text-red-500">0</p><p class="text-[11px] text-text/50 truncate" data-i18n="statOccupied"></p></div>
+    </div>
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3 card-hover fade-up">
+      <div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0"><i data-lucide="gauge" class="text-blue-600" style="width:20px;height:20px"></i></div>
+      <div class="min-w-0"><p id="stat-usage" class="text-xl font-bold text-blue-600">0%</p><p class="text-[11px] text-text/50 truncate" data-i18n="statUsage"></p></div>
+    </div>
+    <div class="bg-white rounded-2xl p-3.5 shadow-sm flex items-center gap-3 card-hover fade-up">
+      <div class="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0"><i data-lucide="lock" class="text-orange-600" style="width:20px;height:20px"></i></div>
+      <div class="min-w-0"><p class="text-base font-bold text-orange-600" data-i18n="limitCardValue"></p><p class="text-[11px] text-text/50 truncate" data-i18n="limitCardTitle"></p></div>
+    </div>
+  </div>
+  <p id="stat-updated" class="text-[11px] text-text/35 mt-2 px-5 text-right">-</p>
+
+
+  <!-- Info banner: advance booking limit -->
+  <div class="px-5 mt-3">
+    <div class="bg-orange-50 border border-orange-200 rounded-2xl p-3.5 flex gap-3 items-start">
+      <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0"><i data-lucide="shield-alert" class="text-orange-600" style="width:16px;height:16px"></i></div>
+      <div>
+        <p class="text-xs font-semibold text-orange-700" data-i18n="limitBannerTitle"></p>
+        <p class="text-[11px] text-orange-600/80 mt-0.5" data-i18n="limitBannerDesc"></p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Quick actions -->
+  <div class="px-5 mt-5">
+    <div class="grid grid-cols-4 gap-2 text-center">
+      <button data-quick="map" class="ripple flex flex-col items-center gap-1.5">
+        <div class="icon-badge w-12 h-12"><i data-lucide="map" style="width:20px;height:20px"></i></div>
+        <span class="text-[11px] text-text/70" data-i18n="quickMapTitle"></span>
+      </button>
+      <button data-quick="list" class="ripple flex flex-col items-center gap-1.5">
+        <div class="icon-badge w-12 h-12"><i data-lucide="list" style="width:20px;height:20px"></i></div>
+        <span class="text-[11px] text-text/70" data-i18n="quickListTitle"></span>
+      </button>
+      <button data-quick="history" class="ripple flex flex-col items-center gap-1.5">
+        <div class="icon-badge w-12 h-12"><i data-lucide="history" style="width:20px;height:20px"></i></div>
+        <span class="text-[11px] text-text/70" data-i18n="quickHistoryTitle"></span>
+      </button>
+      <button data-quick="howto" class="ripple flex flex-col items-center gap-1.5">
+        <div class="icon-badge w-12 h-12"><i data-lucide="help-circle" style="width:20px;height:20px"></i></div>
+        <span class="text-[11px] text-text/70" data-i18n="quickHowToTitle"></span>
+      </button>
+    </div>
+  </div>
+
+
+  <!-- Nearby -->
+  <div class="mt-6">
+    <div class="flex items-center justify-between px-5 mb-3">
+      <h3 class="font-semibold text-base" data-i18n="nearbyTitle"></h3>
+      <button data-quick="list" class="text-xs text-brick font-medium" data-i18n="viewAllLabel"></button>
+    </div>
+    <div id="nearby-container" class="flex gap-3 overflow-x-auto snap-x px-5 pb-2"></div>
+  </div>
+
+
+  <!-- My Bookings -->
+  <div class="px-5 mt-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold text-base" data-i18n="myBookingsTitle"></h3>
+      <span id="mybooking-count" class="text-xs text-brick font-medium"></span>
+    </div>
+    <div id="mybookings-container" class="space-y-3"></div>
+  </div>
+
+
+  <!-- Reminder banner -->
+  <div class="px-5 mt-5">
+    <div class="bg-white border border-orange-200 rounded-2xl p-3.5 flex items-center gap-3">
+      <i data-lucide="clock" class="text-orange-500 flex-shrink-0" style="width:18px;height:18px"></i>
+      <p class="text-xs text-text/60" data-i18n="bottomReminderText"></p>
+    </div>
+  </div>
+
+
+  <!-- Full list -->
+  <div id="parking-results" class="px-5 mt-6">
+    <h3 class="font-semibold text-base mb-3" data-i18n="allLotsTitle"></h3>
+    <div id="results-container" class="space-y-3"></div>
+  </div>
+
+
+  <!-- Survey banner -->
+  <div class="px-5 mt-6">
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSfU_dJqzGZutRs_7KCFGTXgGMN0xUznem-WOp0ie6P9WwEVCQ/viewform"
+       target="_blank" rel="noopener noreferrer"
+       class="ripple w-full bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 card-hover border border-brick/10">
+      <div class="icon-badge w-10 h-10 flex-shrink-0"><i data-lucide="clipboard-list" style="width:20px;height:20px"></i></div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold" data-i18n="surveyTitle"></p>
+        <p class="text-xs text-text/50" data-i18n="surveySubtitle"></p>
+      </div>
+      <i data-lucide="external-link" style="width:16px;height:16px" class="text-text/30 flex-shrink-0"></i>
+    </a>
+  </div>
+
+
+  <!-- Footer tagline -->
+  <div class="text-center mt-8 px-5 relative">
+    <span class="flower-deco" style="bottom:0; left:10%; font-size:1.3rem;">🌸</span>
+    <p class="script-font text-brick text-lg" data-i18n="footerTagline"></p>
+    <span class="flower-deco" style="bottom:0; right:10%; font-size:1.3rem;">🌸</span>
+  </div>
+</section>
+
+
+<!-- ============ MAP PAGE ============ -->
+<section id="page-map" class="page w-full" style="height:calc(var(--vh, 1vh) * 100)">
+  <div class="relative w-full h-full pb-20">
+    <div id="map-container"></div>
+    <button data-page="page-home" class="absolute top-4 left-4 z-[1000] w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
+      <i data-lucide="arrow-left" style="width:20px;height:20px"></i>
+    </button>
+    <div id="map-info" class="absolute bottom-24 left-4 right-4 z-[1000] hidden bg-white rounded-2xl shadow-xl p-4"></div>
+  </div>
+</section>
+
+
+<!-- ============ NOTIFICATIONS ============ -->
+<section id="page-notifications" class="page min-h-screen w-full pb-28 bg-surface">
+  <header class="sticky top-0 z-30 glass-white px-4 py-4 flex items-center gap-3">
+    <button data-page="page-home" class="w-9 h-9 rounded-full bg-surface flex items-center justify-center"><i data-lucide="arrow-left" style="width:18px;height:18px"></i></button>
+    <h2 class="font-semibold text-lg" data-i18n="notifTitle"></h2>
+  </header>
+  <div id="notifications-container" class="px-4 pt-4 space-y-3"></div>
+</section>
+
+
+<!-- ============ PROFILE ============ -->
+<section id="page-profile" class="page min-h-screen w-full pb-28 bg-surface">
+  <header class="sticky top-0 z-30 glass-white px-4 py-4 flex items-center gap-3">
+    <button data-page="page-home" class="w-9 h-9 rounded-full bg-surface flex items-center justify-center"><i data-lucide="arrow-left" style="width:18px;height:18px"></i></button>
+    <h2 class="font-semibold text-lg" data-i18n="profileTitle"></h2>
+  </header>
+  <div class="px-4 pt-6 flex flex-col items-center">
+    <div id="profile-avatar" class="w-24 h-24 rounded-full avatar-circle border-4 border-brick/20 shadow-lg mb-4 text-2xl">?</div>
+    <h3 id="profile-name" class="font-semibold text-lg">-</h3>
+    <p id="profile-email" class="text-sm text-text/60 mb-1">-</p>
+    <span id="profile-role" class="inline-block px-3 py-1 rounded-full bg-brick/10 text-brick text-xs font-medium mb-6">-</span>
+
+
+    <div class="w-full bg-white rounded-2xl p-4 shadow-sm mb-3">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm text-text/60" data-i18n="activeBookingsLabel"></span>
+        <span id="profile-active-count" class="text-sm font-bold text-brick">0</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-text/60" data-i18n="totalBookingsLabel"></span>
+        <span id="profile-total-count" class="text-sm font-bold text-brick">0</span>
+      </div>
+    </div>
+
+
+    <button data-quick="history" class="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between mb-3 card-hover">
+      <span class="flex items-center gap-3"><i data-lucide="history" style="width:18px;height:18px" class="text-brick"></i><span class="text-sm" data-i18n="quickHistoryTitle"></span></span>
+      <i data-lucide="chevron-right" style="width:16px;height:16px" class="text-text/30"></i>
+    </button>
+    <button data-page="page-settings" class="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between mb-3 card-hover">
+      <span class="flex items-center gap-3"><i data-lucide="settings" style="width:18px;height:18px" class="text-brick"></i><span class="text-sm" data-i18n="settingsLabel"></span></span>
+      <i data-lucide="chevron-right" style="width:16px;height:16px" class="text-text/30"></i>
+    </button>
+    <button id="logout-btn" class="ripple btn-pill-outline w-full py-3 text-sm mt-2" data-i18n="logoutBtn" style="color:#dc2626;border-color:#fecaca;background:#fef2f2"></button>
+  </div>
+</section>
+
+
+<!-- ============ SETTINGS ============ -->
+<section id="page-settings" class="page min-h-screen w-full pb-28 bg-surface">
+  <header class="sticky top-0 z-30 glass-white px-4 py-4 flex items-center gap-3">
+    <button data-page="page-profile" class="w-9 h-9 rounded-full bg-surface flex items-center justify-center"><i data-lucide="arrow-left" style="width:18px;height:18px"></i></button>
+    <h2 class="font-semibold text-lg" data-i18n="settingsTitle"></h2>
+  </header>
+  <div class="px-4 pt-4 space-y-3">
+    <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
+      <span class="text-sm" data-i18n="languageLabel"></span><span id="current-lang-label" class="text-sm text-text/50">ไทย</span>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
+      <span class="text-sm" data-i18n="notificationsLabel"></span>
+      <div class="toggle-switch on" data-toggle><div class="knob"></div></div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between">
+      <span class="text-sm" data-i18n="notifyAvailableLabel"></span>
+      <div class="toggle-switch on" data-toggle><div class="knob"></div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ SLOT DETAIL / BOOKING MODAL ============ -->
+<div id="slot-modal" class="app-modal-overlay fixed inset-0 z-[9999] bg-black/40 hidden flex items-end sm:items-center justify-center">
+  <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="sticky top-0 z-10 glass-white px-6 py-4 flex items-center justify-between border-b border-brick/10">
+      <h3 id="slot-modal-title" class="font-bold text-lg"></h3>
+      <button data-close-modal class="w-8 h-8 rounded-full bg-surface flex items-center justify-center"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="overflow-y-auto flex-1 px-6 py-4">
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-surface rounded-xl p-3 text-center"><p class="text-xs text-text/50 mb-1" data-i18n="modalTotalLabel"></p><p id="slot-total" class="font-bold text-lg"></p></div>
+        <div class="bg-surface rounded-xl p-3 text-center"><p class="text-xs text-text/50 mb-1" data-i18n="modalAvailableLabel"></p><p id="slot-available" class="font-bold text-lg text-green-600"></p></div>
+        <div class="bg-surface rounded-xl p-3 text-center"><p class="text-xs text-text/50 mb-1" data-i18n="modalOccupiedLabel"></p><p id="slot-occupied" class="font-bold text-lg text-brick-light"></p></div>
+      </div>
+      <div class="mb-6">
+        <div class="flex items-center gap-4 mb-3 text-xs text-text/60">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block"></span><span data-i18n="legendAvailable"></span></span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-brick/30 inline-block"></span><span data-i18n="legendBooked"></span></span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-accent/40 border-2 border-accent inline-block"></span><span data-i18n="legendSelected"></span></span>
+        </div>
+        <p class="text-sm font-semibold mb-3" data-i18n="slotsGridTitle"></p>
+        <div id="slots-grid" class="grid grid-cols-5 sm:grid-cols-6 gap-2"></div>
+      </div>
+      <form id="booking-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-2" data-i18n="entryTimeLabel"></label>
+          <input type="datetime-local" id="entry-time" required class="w-full px-4 py-2 rounded-xl border border-brick/20 focus:outline-none focus:ring-2 focus:ring-brick/30">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-2" data-i18n="exitTimeLabel"></label>
+          <input type="datetime-local" id="exit-time" required class="w-full px-4 py-2 rounded-xl border border-brick/20 focus:outline-none focus:ring-2 focus:ring-brick/30">
+        </div>
+        <p class="text-[11px] text-orange-600 flex items-center gap-1"><i data-lucide="info" style="width:12px;height:12px"></i><span data-i18n="limitBannerDesc"></span></p>
+        <div>
+          <label class="block text-sm font-medium mb-2" data-i18n="selectedSlotLabel"></label>
+          <input type="text" id="slot-number-display" readonly data-i18n-placeholder="selectedSlotPlaceholder" class="w-full px-4 py-2 rounded-xl border border-brick/20 bg-surface">
+        </div>
+        <p id="booking-error" class="text-xs text-red-600 hidden"></p>
+        <button type="submit" class="ripple btn-pill-filled w-full py-3 text-sm mt-2" data-i18n="bookBtn"></button>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ BOOKING HISTORY MODAL ============ -->
+<div id="history-modal" class="app-modal-overlay fixed inset-0 z-[9999] bg-black/40 hidden flex items-end sm:items-center justify-center">
+  <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="sticky top-0 z-10 glass-white px-6 py-4 flex items-center justify-between border-b border-brick/10">
+      <h3 class="font-bold text-lg" data-i18n="historyModalTitle"></h3>
+      <button data-close-modal class="w-8 h-8 rounded-full bg-surface flex items-center justify-center"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div id="history-list" class="overflow-y-auto flex-1 px-6 py-4 space-y-3"></div>
+  </div>
+</div>
+
+
+<!-- ============ HOW-TO MODAL ============ -->
+<div id="howto-modal" class="app-modal-overlay fixed inset-0 z-[9999] bg-black/40 hidden flex items-end sm:items-center justify-center">
+  <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="sticky top-0 z-10 glass-white px-6 py-4 flex items-center justify-between border-b border-brick/10">
+      <h3 class="font-bold text-lg" data-i18n="howToModalTitle"></h3>
+      <button data-close-modal class="w-8 h-8 rounded-full bg-surface flex items-center justify-center"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+      <div class="flex gap-3 items-start"><div class="icon-badge w-8 h-8 flex-shrink-0 text-xs font-bold">1</div><p class="text-sm text-text/70" data-i18n="howToStep1"></p></div>
+      <div class="flex gap-3 items-start"><div class="icon-badge w-8 h-8 flex-shrink-0 text-xs font-bold">2</div><p class="text-sm text-text/70" data-i18n="howToStep2"></p></div>
+      <div class="flex gap-3 items-start"><div class="icon-badge w-8 h-8 flex-shrink-0 text-xs font-bold">3</div><p class="text-sm text-text/70" data-i18n="howToStep3"></p></div>
+      <div class="flex gap-3 items-start"><div class="icon-badge w-8 h-8 flex-shrink-0 text-xs font-bold">4</div><p class="text-sm text-text/70" data-i18n="howToStep4"></p></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 glass-white border-t border-brick/10 px-2 py-2 hidden">
+  <div class="flex justify-around items-center max-w-lg mx-auto">
+    <button data-page="page-home" class="bottom-nav-item active-nav flex flex-col items-center gap-0.5 p-1" data-nav="page-home">
+      <i data-lucide="home" style="width:20px;height:20px"></i><span class="text-[10px]" data-i18n="navHome"></span>
+    </button>
+    <button data-page="page-map" class="bottom-nav-item flex flex-col items-center gap-0.5 p-1 text-text/50" data-nav="page-map">
+      <i data-lucide="map" style="width:20px;height:20px"></i><span class="text-[10px]" data-i18n="navMap"></span>
+    </button>
+    <button data-page="page-notifications" class="bottom-nav-item flex flex-col items-center gap-0.5 p-1 text-text/50" data-nav="page-notifications">
+      <i data-lucide="bell" style="width:20px;height:20px"></i><span class="text-[10px]" data-i18n="navNotif"></span>
+    </button>
+    <button data-page="page-profile" class="bottom-nav-item flex flex-col items-center gap-0.5 p-1 text-text/50" data-nav="page-profile">
+      <i data-lucide="user" style="width:20px;height:20px"></i><span class="text-[10px]" data-i18n="navProfile"></span>
+    </button>
+  </div>
+</nav>
+
+
+<!-- Toast -->
+<div id="toast" class="toast bg-red-600 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2">
+  <i data-lucide="alert-circle" style="width:16px;height:16px"></i>
+  <span id="toast-text"></span>
+</div>
+
+
+<script>
+(function () {
+  'use strict';
+
+
+  /* ================= Fix mobile viewport height ================= */
+  function setVH() { document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
+  setVH();
+  window.addEventListener('resize', setVH);
+  window.addEventListener('orientationchange', setVH);
+
+
+  /* ================= i18n Dictionary ================= */
+  const I18N = {
+    th: {
+      loginTagline: 'ระบบค้นหาและจองที่จอดรถ มหาวิทยาลัยขอนแก่น',
+      tabStudent: 'รหัสนักศึกษา', tabEmail: 'อีเมล KKU',
+      labelStudentId: 'รหัสนักศึกษา / รหัสประจำตัวบุคลากร', placeholderStudentId: 'เช่น 653020123-4',
+      labelEmail: 'อีเมล KKU', placeholderEmail: 'name@kkumail.com',
+      labelPassword: 'รหัสผ่าน', placeholderPassword: 'กรอกรหัสผ่านของคุณ',
+      forgotPassword: 'ลืมรหัสผ่าน?', rememberMe: 'จดจำการเข้าสู่ระบบ',
+      submitLogin: 'เข้าสู่ระบบ', orDivider: 'หรือ', guestBtn: 'เข้าใช้งานแบบผู้เยี่ยมชม',
+      termsPrefix: 'การเข้าสู่ระบบถือว่ายอมรับ', termsLink: 'ข้อกำหนดการใช้งาน',
+      errStudentIdRequired: 'กรุณากรอกรหัสนักศึกษา', errStudentIdInvalid: 'รูปแบบรหัสนักศึกษาไม่ถูกต้อง',
+      errEmailRequired: 'กรุณากรอกอีเมล', errEmailInvalid: 'กรุณาใช้อีเมล KKU (@kkumail.com)',
+      errPasswordRequired: 'กรุณากรอกรหัสผ่าน', errPasswordMin: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+      loginSuccessMsg: 'เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ {name}', guestLoginMsg: 'เข้าใช้งานในโหมดผู้เยี่ยมชม',
+      forgotPasswordMsg: 'กรุณาติดต่อสำนักบริการเทคโนโลยีสารสนเทศเพื่อรีเซ็ตรหัสผ่าน',
+      studentPrefix: 'นักศึกษา', guestDisplayName: 'ผู้เยี่ยมชม',
+      roleStudent: 'นักศึกษา', roleStaff: 'บุคลากร', roleGuest: 'ผู้เยี่ยมชม',
+      uniNameShort: 'มหาวิทยาลัยขอนแก่น',
+      greetingPrefix: 'สวัสดี', homeSubtitle: 'ค้นหาที่จอดรถใกล้คณะของคุณได้ทันที',
+      searchPlaceholder: 'ค้นหาคณะ เช่น วิศวะ, EN, แพทย์',
+      statTotal: 'ที่จอดทั้งหมด', statAvailable: 'ว่าง', statOccupied: 'ถูกใช้งาน', statUsage: 'การใช้งาน',
+      limitCardTitle: 'จองล่วงหน้าเกิน 1 วัน', limitCardValue: 'ไม่เกิน 24 ชม.',
+      limitBannerTitle: 'ระบบป้องกันการจองล่วงหน้าเกินกำหนด',
+      limitBannerDesc: 'เพื่อความเป็นธรรมในการใช้พื้นที่ ระบบอนุญาตให้จองล่วงหน้าได้ไม่เกิน 24 ชั่วโมงต่อครั้ง',
+      lastUpdatedPrefix: 'อัปเดตล่าสุด', myBookingsTitle: 'การจองของฉัน', myBookingsEmpty: 'คุณยังไม่มีการจองที่ใช้งานอยู่',
+      bookingCountSuffix: '{n} รายการ', allLotsTitle: 'ลานจอดรถทั้งหมด',
+      surveyTitle: 'ช่วยเราพัฒนาแอปให้ดีขึ้น', surveySubtitle: 'แบบประเมินความพึงพอใจ (ใช้เวลาไม่เกิน 2 นาที)',
+      noResults: 'ไม่พบลานจอดที่ตรงกับคำค้นหา', walkMinLabel: 'เดิน {n} นาที', totalSlotsLabel: 'รวม {n} ช่อง',
+      navigateBtn: 'นำทาง', detailBtn: 'จอง/รายละเอียด',
+      statusAvailable: 'ว่าง', statusNearFull: 'ใกล้เต็ม', statusFull: 'เต็ม', carsUnit: 'คัน',
+      cancelBtn: 'ยกเลิก', beforeExpire: 'ก่อนหมดเวลา', startsIn: 'เริ่มในอีก',
+      notifTitle: 'การแจ้งเตือน', notifEmpty: 'ยังไม่มีการแจ้งเตือน',
+      profileTitle: 'โปรไฟล์', activeBookingsLabel: 'การจองที่ใช้งานอยู่', totalBookingsLabel: 'การจองทั้งหมด (สะสม)',
+      settingsLabel: 'ตั้งค่า', logoutBtn: 'ออกจากระบบ', settingsTitle: 'ตั้งค่า',
+      languageLabel: 'ภาษา', notificationsLabel: 'การแจ้งเตือน', notifyAvailableLabel: 'แจ้งเตือนเมื่อที่จอดว่าง',
+      modalTotalLabel: 'ทั้งหมด', modalAvailableLabel: 'ว่าง', modalOccupiedLabel: 'ใช้งาน',
+      legendAvailable: 'ว่าง', legendBooked: 'ถูกจอง', legendSelected: 'เลือกอยู่', slotsGridTitle: 'ช่องจอดรถ',
+      entryTimeLabel: 'เวลาเริ่มใช้งาน', exitTimeLabel: 'เวลาสิ้นสุด',
+      selectedSlotLabel: 'ช่องจอดรถที่เลือก', selectedSlotPlaceholder: 'แตะเลือกช่องจอดด้านบน',
+      bookBtn: 'จองที่จอดรถ', bookSuccess: '✓ จองสำเร็จ',
+      navHome: 'หน้าหลัก', navMap: 'แผนที่', navNotif: 'แจ้งเตือน', navProfile: 'โปรไฟล์',
+      bookingSuccessMsg: 'จองที่จอดสำเร็จ: {lot} ช่อง {slot} ({range})',
+      cancelMsg: 'ยกเลิกการจองช่อง {slot} ที่ {lot} แล้ว',
+      slotAvailableMsg: 'ช่องจอด {slot} ที่ {lot} ว่างแล้ว สามารถจองใหม่ได้',
+      errBookingLoginRequired: 'กรุณาเข้าสู่ระบบก่อนทำการจอง', errBookingSelectSlot: 'กรุณาเลือกช่องจอดรถ',
+      errBookingInvalidTime: 'กรุณาระบุเวลาให้ถูกต้อง', errBookingExitBeforeEntry: 'เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มใช้งาน',
+      errBookingPastEntry: 'เวลาเริ่มใช้งานต้องไม่อยู่ในอดีต',
+      errBookingConflict: 'ช่องจอดนี้มีการจองในช่วงเวลาที่เลือกอยู่แล้ว กรุณาเลือกช่องอื่นหรือเวลาอื่น',
+      errBookingAdvanceLimit: 'ไม่สามารถจองล่วงหน้าเกิน 24 ชั่วโมงได้',
+      distanceApproxLabel: 'ระยะทางประมาณ {km} กม.', walkApproxLabel: 'เดินประมาณ {min} นาที',
+      availableSlotsOfLabel: 'ว่าง {avail}/{total} ช่อง', bookParkingBtn: 'จองที่จอด', yourLocation: 'ตำแหน่งของคุณ',
+      quickMapTitle: 'แผนที่', quickListTitle: 'รายชื่อที่จอด', quickHistoryTitle: 'ประวัติการจอง', quickHowToTitle: 'วิธีใช้งาน',
+      nearbyTitle: 'ที่จอดรถใกล้คุณ', viewAllLabel: 'ดูทั้งหมด',
+      historyModalTitle: 'ประวัติการจองของฉัน', historyEmpty: 'ยังไม่มีประวัติการจอง',
+      howToModalTitle: 'วิธีใช้งาน',
+      howToStep1: 'ค้นหาหรือเลือกคณะที่ต้องการจอดรถจากหน้าหลักหรือแผนที่',
+      howToStep2: 'เลือกช่องจอดที่ว่าง (แสดงเป็นสีเขียว) ในหน้ารายละเอียด',
+      howToStep3: 'กำหนดเวลาเริ่มและเวลาสิ้นสุดการใช้งาน (จองล่วงหน้าได้ไม่เกิน 24 ชั่วโมง)',
+      howToStep4: 'กดยืนยันการจอง แล้วตรวจสอบสถานะได้ที่หน้าหลักหรือโปรไฟล์ของคุณ',
+      bottomReminderText: 'จองได้ไม่เกิน 1 วันต่อครั้ง เพื่อความเป็นธรรมของผู้ใช้งานทุกคน',
+      footerTagline: 'KKU Together for a better tomorrow',
+      statusCompleted: 'เสร็จสิ้น', statusUpcoming: 'จองล่วงหน้า', statusOngoing: 'กำลังใช้งาน'
+    },
+    en: {
+      loginTagline: 'Parking Search & Reservation System, Khon Kaen University',
+      tabStudent: 'Student ID', tabEmail: 'KKU Email',
+      labelStudentId: 'Student ID / Staff ID', placeholderStudentId: 'e.g. 653020123-4',
+      labelEmail: 'KKU Email', placeholderEmail: 'name@kkumail.com',
+      labelPassword: 'Password', placeholderPassword: 'Enter your password',
+      forgotPassword: 'Forgot password?', rememberMe: 'Remember me',
+      submitLogin: 'Log In', orDivider: 'OR', guestBtn: 'Continue as Guest',
+      termsPrefix: 'By logging in, you agree to our', termsLink: 'Terms of Service',
+      errStudentIdRequired: 'Please enter your student ID', errStudentIdInvalid: 'Invalid student ID format',
+      errEmailRequired: 'Please enter your email', errEmailInvalid: 'Please use a KKU email (@kkumail.com)',
+      errPasswordRequired: 'Please enter your password', errPasswordMin: 'Password must be at least 6 characters',
+      loginSuccessMsg: 'Login successful. Welcome {name}', guestLoginMsg: 'Logged in as Guest',
+      forgotPasswordMsg: 'Please contact the IT Service Center to reset your password',
+      studentPrefix: 'Student', guestDisplayName: 'Guest',
+      roleStudent: 'Student', roleStaff: 'Staff', roleGuest: 'Guest',
+      uniNameShort: 'Khon Kaen University',
+      greetingPrefix: 'Hello', homeSubtitle: 'Find parking near your faculty instantly',
+      searchPlaceholder: 'Search faculty e.g. Engineering, EN, Medicine',
+      statTotal: 'Total Spots', statAvailable: 'Available', statOccupied: 'Occupied', statUsage: 'Usage',
+      limitCardTitle: 'Advance booking over 1 day', limitCardValue: 'Up to 24 hrs',
+      limitBannerTitle: 'Advance Booking Limit Protection',
+      limitBannerDesc: 'For fair use of parking space, advance bookings are limited to a maximum of 24 hours ahead.',
+      lastUpdatedPrefix: 'Last updated', myBookingsTitle: 'My Bookings', myBookingsEmpty: 'You have no active bookings',
+      bookingCountSuffix: '{n} items', allLotsTitle: 'All Parking Lots',
+      surveyTitle: 'Help us improve the app', surveySubtitle: 'Satisfaction survey (takes less than 2 minutes)',
+      noResults: 'No parking lots match your search', walkMinLabel: '{n} min walk', totalSlotsLabel: 'Total {n} spots',
+      navigateBtn: 'Navigate', detailBtn: 'Book / Details',
+      statusAvailable: 'Available', statusNearFull: 'Near Full', statusFull: 'Full', carsUnit: 'cars',
+      cancelBtn: 'Cancel', beforeExpire: 'left', startsIn: 'starts in',
+      notifTitle: 'Notifications', notifEmpty: 'No notifications yet',
+      profileTitle: 'Profile', activeBookingsLabel: 'Active Bookings', totalBookingsLabel: 'Total Bookings',
+      settingsLabel: 'Settings', logoutBtn: 'Log Out', settingsTitle: 'Settings',
+      languageLabel: 'Language', notificationsLabel: 'Notifications', notifyAvailableLabel: 'Notify when spot available',
+      modalTotalLabel: 'Total', modalAvailableLabel: 'Available', modalOccupiedLabel: 'Occupied',
+      legendAvailable: 'Available', legendBooked: 'Booked', legendSelected: 'Selected', slotsGridTitle: 'Parking Spots',
+      entryTimeLabel: 'Start Time', exitTimeLabel: 'End Time',
+      selectedSlotLabel: 'Selected Spot', selectedSlotPlaceholder: 'Tap a spot above to select',
+      bookBtn: 'Book Parking Spot', bookSuccess: '✓ Booked',
+      navHome: 'Home', navMap: 'Map', navNotif: 'Alerts', navProfile: 'Profile',
+      bookingSuccessMsg: 'Booking successful: {lot} Spot {slot} ({range})',
+      cancelMsg: 'Cancelled booking for Spot {slot} at {lot}',
+      slotAvailableMsg: 'Spot {slot} at {lot} is now available for booking',
+      errBookingLoginRequired: 'Please log in before booking', errBookingSelectSlot: 'Please select a parking spot',
+      errBookingInvalidTime: 'Please provide a valid time', errBookingExitBeforeEntry: 'End time must be after start time',
+      errBookingPastEntry: 'Start time cannot be in the past',
+      errBookingConflict: 'This spot is already booked during that time. Please choose another spot or time.',
+      errBookingAdvanceLimit: 'You cannot book more than 24 hours in advance',
+      distanceApproxLabel: 'Approx. {km} km', walkApproxLabel: 'approx. {min} min walk',
+      availableSlotsOfLabel: '{avail}/{total} available', bookParkingBtn: 'Book Parking', yourLocation: 'Your Location',
+      quickMapTitle: 'Map', quickListTitle: 'All Lots', quickHistoryTitle: 'History', quickHowToTitle: 'How To',
+      nearbyTitle: 'Nearby Parking', viewAllLabel: 'View All',
+      historyModalTitle: 'My Booking History', historyEmpty: 'No booking history yet',
+      howToModalTitle: 'How to Use',
+      howToStep1: 'Search or select the faculty where you want to park from the home page or map.',
+      howToStep2: 'Choose an available spot (shown in green) on the details page.',
+      howToStep3: 'Set your start and end time (advance booking limited to 24 hours).',
+      howToStep4: 'Confirm your booking and check its status on your home page or profile.',
+      bottomReminderText: 'Bookings are limited to 1 day in advance to ensure fair access for all users.',
+      footerTagline: 'KKU Together for a better tomorrow',
+      statusCompleted: 'Completed', statusUpcoming: 'Upcoming', statusOngoing: 'Ongoing'
+    }
+  };
+  let currentLang = 'th';
+  function t(key, vars) {
+    let str = (I18N[currentLang] && I18N[currentLang][key]) || I18N.th[key] || key;
+    if (vars) Object.keys(vars).forEach(function (k) { str = str.split('{' + k + '}').join(vars[k]); });
+    return str;
+  }
+
+
+  /* ================= Data: Faculties (capacity slightly increased) ================= */
+  const FACULTIES = [
+    { id: 'eng',   name: 'คณะวิศวกรรมศาสตร์',              nameEn: 'Faculty of Engineering',                     code: 'EN',  lat: 16.4726, lng: 102.8231, total: 75, walk: 2 },
+    { id: 'med',   name: 'คณะแพทยศาสตร์',                  nameEn: 'Faculty of Medicine',                        code: 'MD',  lat: 16.4680, lng: 102.8300, total: 115, walk: 6 },
+    { id: 'sci',   name: 'คณะวิทยาศาสตร์',                  nameEn: 'Faculty of Science',                         code: 'SC',  lat: 16.4737, lng: 102.8218, total: 70, walk: 3 },
+    { id: 'edu',   name: 'คณะศึกษาศาสตร์',                  nameEn: 'Faculty of Education',                       code: 'ED',  lat: 16.4745, lng: 102.8195, total: 55, walk: 4 },
+    { id: 'hum',   name: 'คณะมนุษยศาสตร์และสังคมศาสตร์',     nameEn: 'Faculty of Humanities and Social Sciences',  code: 'HS',  lat: 16.4752, lng: 102.8175, total: 65, walk: 5 },
+    { id: 'agr',   name: 'คณะเกษตรศาสตร์',                  nameEn: 'Faculty of Agriculture',                     code: 'AG',  lat: 16.4690, lng: 102.8155, total: 80, walk: 7 },
+    { id: 'arc',   name: 'คณะสถาปัตยกรรมศาสตร์',             nameEn: 'Faculty of Architecture',                    code: 'AR',  lat: 16.4708, lng: 102.8265, total: 45, walk: 3 },
+    { id: 'law',   name: 'คณะนิติศาสตร์',                    nameEn: 'Faculty of Law',                             code: 'LW',  lat: 16.4715, lng: 102.8280, total: 40, walk: 4 },
+    { id: 'biz',   name: 'คณะบริหารธุรกิจและการบัญชี',        nameEn: 'Faculty of Business Administration and Accountancy', code: 'BA',  lat: 16.4700, lng: 102.8290, total: 85, walk: 5 },
+    { id: 'ph',    name: 'คณะสาธารณสุขศาสตร์',               nameEn: 'Faculty of Public Health',                   code: 'PH',  lat: 16.4670, lng: 102.8310, total: 50, walk: 6 },
+    { id: 'dent',  name: 'คณะทันตแพทยศาสตร์',                nameEn: 'Faculty of Dentistry',                       code: 'DT',  lat: 16.4665, lng: 102.8320, total: 45, walk: 7 },
+    { id: 'phar',  name: 'คณะเภสัชศาสตร์',                   nameEn: 'Faculty of Pharmaceutical Sciences',         code: 'PY',  lat: 16.4675, lng: 102.8330, total: 50, walk: 7 },
+    { id: 'fa',    name: 'คณะศิลปกรรมศาสตร์',                nameEn: 'Faculty of Fine and Applied Arts',           code: 'FA',  lat: 16.4760, lng: 102.8210, total: 35, walk: 5 },
+    { id: 'ams',   name: 'คณะเทคนิคการแพทย์',                nameEn: 'Faculty of Associated Medical Sciences',     code: 'AM',  lat: 16.4685, lng: 102.8340, total: 48, walk: 8 },
+    { id: 'vet',   name: 'คณะสัตวแพทยศาสตร์',                nameEn: 'Faculty of Veterinary Medicine',             code: 'VM',  lat: 16.4650, lng: 102.8200, total: 55, walk: 9 },
+    { id: 'tech',  name: 'คณะเทคโนโลยี',                     nameEn: 'Faculty of Technology',                      code: 'TC',  lat: 16.4695, lng: 102.8140, total: 55, walk: 6 },
+    { id: 'nurse', name: 'คณะพยาบาลศาสตร์',                  nameEn: 'Faculty of Nursing',                         code: 'NS',  lat: 16.4672, lng: 102.8295, total: 60, walk: 6 },
+    { id: 'econ',  name: 'คณะเศรษฐศาสตร์',                   nameEn: 'Faculty of Economics',                       code: 'EC',  lat: 16.4703, lng: 102.8270, total: 40, walk: 4 },
+    { id: 'lib',   name: 'สำนักหอสมุด',                      nameEn: 'Central Library',                            code: 'LIB', lat: 16.4722, lng: 102.8245, total: 75, walk: 2 },
+    { id: 'admin', name: 'สำนักงานอธิการบดี',                 nameEn: 'Office of the President',                    code: 'AD',  lat: 16.4730, lng: 102.8260, total: 65, walk: 3 }
+  ];
+  function facultyName(f) { return currentLang === 'en' ? f.nameEn : f.name; }
+
+
+  const USER_LOCATION = { lat: 16.4735, lng: 102.8225 };
+  const ADVANCE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24-hour advance booking limit
+  const NEARBY_PALETTE = [['#C96A50','#A5483A'],['#eab308','#ca8a04'],['#22c55e','#15803d'],['#3b82f6','#1d4ed8'],['#a855f7','#7e22ce'],['#ec4899','#be185d']];
+
+
+  /* ================= Global State ================= */
+  let currentUser = null;
+  let currentTab = 'student';
+  let bookings = [];
+  let notifications = [];
+  let bookingIdSeq = 1;
+  let notifIdSeq = 1;
+  let currentOpenLotId = null;
+  let selectedSlotNumber = null;
+  let prevActiveKeySet = new Set();
+  let map = null;
+  let markersById = {};
+  let userMarker = null;
+  let routeLine = null;
+  let tickInterval = null;
+
+
+  /* ================= Utility ================= */
+  function $(sel) { return document.querySelector(sel); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+
+  function toLocalInputValue(date) {
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+  }
+  function roundToNextMinutes(date, mins) {
+    const d = new Date(date);
+    const remainder = mins - (d.getMinutes() % mins);
+    d.setMinutes(d.getMinutes() + (remainder === mins ? 0 : remainder));
+    d.setSeconds(0, 0);
+    return d;
+  }
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+  function formatRemaining(ms) {
+    if (ms <= 0) return currentLang === 'en' ? '0 min' : '0 นาที';
+    const totalMin = Math.ceil(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (currentLang === 'en') { return h > 0 ? (h + ' hr ' + m + ' min') : (m + ' min'); }
+    return h > 0 ? (h + ' ชม. ' + m + ' นาที') : (m + ' นาที');
+  }
+  function timeAgo(date) {
+    const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (currentLang === 'en') {
+      if (diffSec < 10) return 'just now';
+      if (diffSec < 60) return diffSec + ' sec ago';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return diffMin + ' min ago';
+      const diffHr = Math.floor(diffMin / 60);
+      return diffHr + ' hr ago';
+    }
+    if (diffSec < 10) return 'เมื่อสักครู่';
+    if (diffSec < 60) return diffSec + ' วินาทีที่แล้ว';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return diffMin + ' นาทีที่แล้ว';
+    const diffHr = Math.floor(diffMin / 60);
+    return diffHr + ' ชั่วโมงที่แล้ว';
+  }
+  function showToast(message) {
+    const toast = $('#toast');
+    $('#toast-text').textContent = message;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toast.classList.remove('show'); }, 3000);
+  }
+
+
+  /* ================= Language Switching ================= */
+  function applyStaticTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) { el.placeholder = t(el.dataset.i18nPlaceholder); });
+    document.getElementById('login-tagline').textContent = t('loginTagline');
+    document.documentElement.lang = currentLang;
+  }
+  function updateGreeting() {
+    const el = document.getElementById('home-greeting');
+    if (!el) return;
+    el.textContent = t('greetingPrefix') + (currentUser ? (' ' + getUserDisplayName(currentUser)) : '') + ' 👋';
+  }
+  function setLanguage(lang) {
+    currentLang = lang;
+    document.querySelectorAll('.lang-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.lang === lang); });
+    applyStaticTranslations();
+    updateGreeting();
+    if (currentUser) applyUserToUI();
+    document.getElementById('current-lang-label').textContent = lang === 'th' ? 'ไทย' : 'English';
+    refreshAllViews();
+    renderNotifications();
+    lucide.createIcons();
+  }
+
+
+  /* ================= Login / Auth ================= */
+  function setFieldError(inputId, errorId, message) {
+    const input = document.getElementById(inputId);
+    const errEl = document.getElementById(errorId);
+    if (message) { input.classList.add('error'); errEl.textContent = message; errEl.classList.add('show'); }
+    else { input.classList.remove('error'); errEl.classList.remove('show'); }
+  }
+  function clearAllErrors() {
+    setFieldError('input-student-id', 'err-student-id', '');
+    setFieldError('input-email', 'err-email', '');
+    setFieldError('input-password', 'err-password', '');
+  }
+  function shakeCard() {
+    const card = document.querySelector('#page-login > div:last-child');
+    card.classList.remove('shake');
+    void card.offsetWidth;
+    card.classList.add('shake');
+  }
+  function isValidStudentId(val) { return /^[0-9]{5,10}-?[0-9]?$/.test(val.trim()); }
+  function isValidKkuEmail(val) { return /^[a-zA-Z0-9._%+-]+@kkumail\.com$/.test(val.trim()); }
+
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-pill').forEach(function (btn) { btn.classList.toggle('active', btn.dataset.tab === tab); });
+    $('#field-student').classList.toggle('hidden', tab !== 'student');
+    $('#field-email').classList.toggle('hidden', tab !== 'email');
+    clearAllErrors();
+  }
+
+
+  function togglePasswordVisibility() {
+    const input = $('#input-password');
+    const btn = $('#toggle-password');
+    const isPw = input.type === 'password';
+    input.type = isPw ? 'text' : 'password';
+    btn.innerHTML = isPw
+      ? '<i data-lucide="eye-off" style="width:18px;height:18px"></i>'
+      : '<i data-lucide="eye" style="width:18px;height:18px"></i>';
+    lucide.createIcons();
+  }
+
+
+  function getInitials(text) {
+    const clean = text.replace(/[^a-zA-Zก-๙0-9]/g, '');
+    return clean.slice(0, 2).toUpperCase() || 'ผู';
+  }
+  function getUserDisplayName(user) {
+    if (!user) return '';
+    if (user.type === 'guest') return t('guestDisplayName');
+    if (user.type === 'student') return t('studentPrefix') + ' ' + user.identifier;
+    return user.identifier;
+  }
+  function getUserRoleLabel(user) {
+    if (!user) return '';
+    if (user.type === 'guest') return t('roleGuest');
+    if (user.type === 'email') return t('roleStaff');
+    return t('roleStudent');
+  }
+
+
+  function handleLoginSubmit(e) {
+    e.preventDefault();
+    clearAllErrors();
+    let hasError = false;
+    let identifierValue = '';
+
+
+    if (currentTab === 'student') {
+      identifierValue = $('#input-student-id').value.trim();
+      if (!identifierValue) { setFieldError('input-student-id', 'err-student-id', t('errStudentIdRequired')); hasError = true; }
+      else if (!isValidStudentId(identifierValue)) { setFieldError('input-student-id', 'err-student-id', t('errStudentIdInvalid')); hasError = true; }
+    } else {
+      identifierValue = $('#input-email').value.trim();
+      if (!identifierValue) { setFieldError('input-email', 'err-email', t('errEmailRequired')); hasError = true; }
+      else if (!isValidKkuEmail(identifierValue)) { setFieldError('input-email', 'err-email', t('errEmailInvalid')); hasError = true; }
+    }
+
+
+    const password = $('#input-password').value;
+    if (!password) { setFieldError('input-password', 'err-password', t('errPasswordRequired')); hasError = true; }
+    else if (password.length < 6) { setFieldError('input-password', 'err-password', t('errPasswordMin')); hasError = true; }
+
+
+    if (hasError) { shakeCard(); return; }
+    performLogin(currentTab, identifierValue);
+  }
+
+
+  function performLogin(type, identifier) {
+    const submitBtn = $('#submit-btn');
+    const submitText = $('#submit-text');
+    submitBtn.disabled = true;
+    submitBtn.classList.add('opacity-80', 'cursor-not-allowed');
+    submitText.innerHTML = '<span class="spinner align-middle"></span>';
+
+
+    setTimeout(function () {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+      submitText.textContent = t('submitLogin');
+
+
+      currentUser = {
+        type: type,
+        identifier: identifier,
+        email: type === 'email' ? identifier : identifier + '@kkumail.com',
+        initials: getInitials(identifier)
+      };
+
+
+      applyUserToUI();
+      enterApp();
+      addNotification(t('loginSuccessMsg', { name: getUserDisplayName(currentUser) }), 'success');
+    }, 1300);
+  }
+
+
+  function handleGuestLogin() {
+    currentUser = { type: 'guest', identifier: 'guest', email: 'guest@kkumail.com', initials: 'GU' };
+    applyUserToUI();
+    enterApp();
+    addNotification(t('guestLoginMsg'), 'info');
+  }
+
+
+  function applyUserToUI() {
+    if (!currentUser) return;
+    updateGreeting();
+    $('#header-avatar').textContent = currentUser.initials;
+    $('#profile-avatar').textContent = currentUser.initials;
+    $('#profile-name').textContent = getUserDisplayName(currentUser);
+    $('#profile-email').textContent = currentUser.email;
+    $('#profile-role').textContent = getUserRoleLabel(currentUser);
+  }
+
+
+  function enterApp() {
+    showPage('page-home');
+    document.getElementById('bottom-nav').classList.remove('hidden');
+    refreshAllViews();
+    lucide.createIcons();
+  }
+
+
+  function handleLogout() {
+    currentUser = null;
+    bookings = bookings.filter(function (b) { return b.owner !== 'me'; });
+    $('#login-form').reset();
+    clearAllErrors();
+    switchTab('student');
+    document.getElementById('bottom-nav').classList.add('hidden');
+    showPage('page-login');
+    updateGreeting();
+    lucide.createIcons();
+  }
+
+
+  /* ================= Booking Core Logic ================= */
+  function isBookingActive(b, now) { return b.entry.getTime() <= now.getTime() && b.exit.getTime() > now.getTime(); }
+  function getActiveBookings(lotId, now) { return bookings.filter(function (b) { return b.lotId === lotId && isBookingActive(b, now); }); }
+  function getLotStats(lotId, now) {
+    const lot = FACULTIES.find(function (f) { return f.id === lotId; });
+    const activeSlots = new Set(getActiveBookings(lotId, now).map(function (b) { return b.slotNumber; }));
+    const occupied = activeSlots.size;
+    return { total: lot.total, occupied: occupied, available: lot.total - occupied };
+  }
+  function getGlobalStats(now) {
+    let total = 0, occupied = 0;
+    FACULTIES.forEach(function (f) { const s = getLotStats(f.id, now); total += s.total; occupied += s.occupied; });
+    return { total: total, occupied: occupied, available: total - occupied, usage: total ? Math.round(occupied / total * 100) : 0 };
+  }
+  function getStatusInfo(available, total) {
+    const ratio = total ? available / total : 0;
+    if (ratio > 0.2) return { color: '#22c55e', label: t('statusAvailable'), bg: 'bg-green-50', text: 'text-green-700', emoji: '🟢' };
+    if (ratio > 0)   return { color: '#eab308', label: t('statusNearFull'), bg: 'bg-yellow-50', text: 'text-yellow-700', emoji: '🟡' };
+    return { color: '#ef4444', label: t('statusFull'), bg: 'bg-red-50', text: 'text-red-600', emoji: '🔴' };
+  }
+  function isSlotActiveNow(lotId, slotNumber, now) {
+    return bookings.some(function (b) { return b.lotId === lotId && b.slotNumber === slotNumber && isBookingActive(b, now); });
+  }
+  function hasConflict(lotId, slotNumber, entry, exit, excludeId) {
+    return bookings.some(function (b) {
+      if (b.id === excludeId) return false;
+      if (b.lotId !== lotId || b.slotNumber !== slotNumber) return false;
+      return entry.getTime() < b.exit.getTime() && exit.getTime() > b.entry.getTime();
+    });
+  }
+
+
+  function seedDemoBookings() {
+    if (bookings.some(function (b) { return b.owner === 'demo'; })) return;
+    const now = Date.now();
+    FACULTIES.forEach(function (f) {
+      const occupyRatio = 0.25 + Math.random() * 0.55;
+      const occupyCount = Math.floor(f.total * occupyRatio);
+      const slotsPool = shuffle(Array.from({ length: f.total }, function (_, i) { return i + 1; }));
+      for (let i = 0; i < occupyCount; i++) {
+        const slotNumber = slotsPool[i];
+        const entryOffsetMin = -Math.floor(Math.random() * 60);
+        const durationMin = 3 + Math.floor(Math.random() * 40);
+        const entry = new Date(now + entryOffsetMin * 60000);
+        const exit = new Date(entry.getTime() + durationMin * 60000);
+        bookings.push({ id: bookingIdSeq++, lotId: f.id, slotNumber: slotNumber, entry: entry, exit: exit, owner: 'demo' });
+      }
+    });
+  }
+
+
+  /* ================= Notifications ================= */
+  function addNotification(message, type) {
+    notifications.unshift({ id: notifIdSeq++, message: message, time: new Date(), type: type || 'info' });
+    if (notifications.length > 30) notifications.pop();
+    renderNotifBadge();
+    renderNotifications();
+  }
+  function renderNotifBadge() { document.getElementById('notif-dot').classList.toggle('hidden', notifications.length === 0); }
+  function renderNotifications() {
+    const container = document.getElementById('notifications-container');
+    if (!container) return;
+    if (notifications.length === 0) {
+      container.innerHTML = '<p class="text-center text-sm text-text/40 py-10">' + t('notifEmpty') + '</p>';
+      return;
+    }
+    container.innerHTML = notifications.map(function (n) {
+      const emoji = n.type === 'available' ? '🟢' : n.type === 'full' ? '🔴' : n.type === 'success' ? '✅' : '🔵';
+      return '<div class="bg-white rounded-2xl p-4 shadow-sm flex gap-3 items-start">' +
+        '<div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center flex-shrink-0"><span class="text-sm">' + emoji + '</span></div>' +
+        '<div><p class="text-sm font-medium">' + n.message + '</p><p class="text-xs text-text/50">' + timeAgo(n.time) + '</p></div>' +
+        '</div>';
+    }).join('');
+  }
+
+
+  /* ================= Navigation ================= */
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    const page = document.getElementById(id);
+    if (!page) return;
+    page.classList.add('active');
+    if (id !== 'page-login') {
+      document.querySelectorAll('.bottom-nav-item').forEach(function (b) {
+        const isActive = b.dataset.nav === id;
+        b.classList.toggle('active-nav', isActive);
+        b.classList.toggle('text-text/50', !isActive);
+      });
+    }
+    if (id === 'page-map') {
+      if (!map) initMap();
+      setTimeout(function () { if (map) map.invalidateSize(); }, 100);
+    }
+    if (id === 'page-profile') renderProfileStats();
+  }
+
+
+  /* ================= Search / Autocomplete ================= */
+  function handleSearchInput(val) { renderAutocomplete(val); renderResults(val); }
+  function renderAutocomplete(val) {
+    const list = document.getElementById('autocomplete-list');
+    if (!val) { list.classList.add('hidden'); list.innerHTML = ''; return; }
+    const q = val.toLowerCase();
+    const matches = FACULTIES.filter(function (f) {
+      return f.name.toLowerCase().indexOf(q) !== -1 || f.nameEn.toLowerCase().indexOf(q) !== -1 || f.code.toLowerCase().indexOf(q) !== -1;
+    });
+    if (!matches.length) { list.classList.add('hidden'); return; }
+    list.innerHTML = matches.slice(0, 6).map(function (f) {
+      return '<div class="autocomplete-item px-4 py-3 cursor-pointer text-sm border-b border-gray-50" data-building="' + f.id + '">' +
+        facultyName(f) + ' <span class="text-text/40 text-xs">(' + f.code + ')</span></div>';
+    }).join('');
+    list.classList.remove('hidden');
+  }
+  function selectBuildingFromAutocomplete(id) {
+    document.getElementById('autocomplete-list').classList.add('hidden');
+    const f = FACULTIES.find(function (x) { return x.id === id; });
+    document.getElementById('search-input').value = facultyName(f);
+    renderResults(facultyName(f));
+  }
+  function renderResults(query) {
+    const now = new Date();
+    const container = document.getElementById('results-container');
+    const q = (query || '').toLowerCase().trim();
+    const list = FACULTIES.filter(function (f) {
+      if (!q) return true;
+      return f.name.toLowerCase().indexOf(q) !== -1 || f.nameEn.toLowerCase().indexOf(q) !== -1 || f.code.toLowerCase().indexOf(q) !== -1;
+    });
+    if (!list.length) { container.innerHTML = '<p class="text-center text-sm text-text/40 py-8">' + t('noResults') + '</p>'; return; }
+    container.innerHTML = list.map(function (f) {
+      const s = getLotStats(f.id, now);
+      const info = getStatusInfo(s.available, s.total);
+      return '<div class="bg-white rounded-2xl p-4 shadow-sm card-hover fade-up">' +
+        '<div class="flex justify-between items-start mb-2">' +
+        '<div><h4 class="font-semibold text-sm">' + facultyName(f) + ' <span class="text-text/40 text-xs">(' + f.code + ')</span></h4>' +
+        '<p class="text-xs text-text/50">' + t('walkMinLabel', { n: f.walk }) + ' &middot; ' + t('totalSlotsLabel', { n: s.total }) + '</p></div>' +
+        '<span class="px-2 py-1 rounded-full text-xs font-medium ' + info.bg + ' ' + info.text + ' whitespace-nowrap">' + info.emoji + ' ' + info.label + (s.available ? ' ' + s.available + ' ' + t('carsUnit') : '') + '</span>' +
+        '</div>' +
+        '<div class="flex gap-2 mt-3">' +
+        '<button data-navigate="' + f.id + '" class="ripple flex-1 py-2 rounded-full bg-brick text-white text-xs font-medium">' + t('navigateBtn') + '</button>' +
+        '<button data-detail="' + f.id + '" class="flex-1 py-2 rounded-full bg-surface text-text text-xs font-medium border border-brick/10">' + t('detailBtn') + '</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+
+  /* ================= Nearby Carousel ================= */
+  function renderNearby() {
+    const container = document.getElementById('nearby-container');
+    if (!container) return;
+    const now = new Date();
+    const withDist = FACULTIES.map(function (f) { return { f: f, d: haversineKm(USER_LOCATION.lat, USER_LOCATION.lng, f.lat, f.lng) }; })
+      .sort(function (a, b) { return a.d - b.d; }).slice(0, 6);
+    container.innerHTML = withDist.map(function (item, idx) {
+      const f = item.f;
+      const s = getLotStats(f.id, now);
+      const info = getStatusInfo(s.available, s.total);
+      const grad = NEARBY_PALETTE[idx % NEARBY_PALETTE.length];
+      return '<button data-detail="' + f.id + '" class="snap-item ripple flex-shrink-0 w-40 bg-white rounded-2xl shadow-sm overflow-hidden text-left card-hover">' +
+        '<div class="h-20 flex items-center justify-center relative" style="background:linear-gradient(135deg,' + grad[0] + ',' + grad[1] + ')">' +
+        '<span class="text-white/30 font-bold text-4xl">' + f.code + '</span>' +
+        '<span class="absolute bottom-2 left-2 text-white text-[10px] bg-black/25 px-2 py-0.5 rounded-full">' + t('walkMinLabel', { n: f.walk }) + '</span>' +
+        '</div>' +
+        '<div class="p-3">' +
+        '<p class="text-xs font-semibold truncate mb-1">' + facultyName(f) + '</p>' +
+        '<span class="inline-flex items-center gap-1 text-[11px] font-medium ' + info.text + '"><span class="w-1.5 h-1.5 rounded-full" style="background:' + info.color + '"></span>' + s.available + ' ' + t('carsUnit') + '</span>' +
+        '</div></button>';
+    }).join('');
+  }
+
+
+  /* ================= My Bookings ================= */
+  function renderMyBookings() {
+    const now = new Date();
+    const container = document.getElementById('mybookings-container');
+    const countEl = document.getElementById('mybooking-count');
+    const mine = bookings.filter(function (b) { return b.owner === 'me' && b.exit.getTime() > now.getTime(); }).sort(function (a, b) { return a.exit - b.exit; });
+    countEl.textContent = mine.length ? t('bookingCountSuffix', { n: mine.length }) : '';
+    if (!currentUser) { container.innerHTML = ''; return; }
+    if (!mine.length) { container.innerHTML = '<div class="bg-white rounded-2xl p-4 text-center text-sm text-text/40">' + t('myBookingsEmpty') + '</div>'; return; }
+    container.innerHTML = mine.map(function (b) {
+      const f = FACULTIES.find(function (x) { return x.id === b.lotId; });
+      const active = isBookingActive(b, now);
+      const remain = active ? (formatRemaining(b.exit - now) + ' ' + t('beforeExpire')) : (t('startsIn') + ' ' + formatRemaining(b.entry - now));
+      const badgeClass = active ? 'bg-brick/10 text-brick' : 'bg-blue-50 text-blue-600';
+      return '<div class="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">' +
+        '<div class="flex-1 min-w-0">' +
+        '<p class="text-sm font-semibold truncate">' + facultyName(f) + ' &middot; ' + b.slotNumber + '</p>' +
+        '<p class="text-xs text-text/50">' + formatShortRange(b.entry, b.exit) + '</p>' +
+        '<span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full ' + badgeClass + '">' + remain + '</span>' +
+        '</div>' +
+        '<button data-cancel-booking="' + b.id + '" class="ripple flex-shrink-0 px-3 py-2 rounded-full bg-red-50 text-red-600 text-xs font-medium">' + t('cancelBtn') + '</button>' +
+        '</div>';
+    }).join('');
+  }
+  function formatShortRange(entry, exit) {
+    const locale = currentLang === 'en' ? 'en-US' : 'th-TH';
+    const sameDay = entry.toDateString() === exit.toDateString();
+    const opts = { hour: '2-digit', minute: '2-digit' };
+    const dOpts = { day: '2-digit', month: '2-digit' };
+    if (sameDay) return entry.toLocaleDateString(locale, dOpts) + ' ' + entry.toLocaleTimeString(locale, opts) + ' - ' + exit.toLocaleTimeString(locale, opts);
+    return entry.toLocaleDateString(locale, dOpts) + ' ' + entry.toLocaleTimeString(locale, opts) + ' - ' + exit.toLocaleDateString(locale, dOpts) + ' ' + exit.toLocaleTimeString(locale, opts);
+  }
+  function cancelBooking(id) {
+    const b = bookings.find(function (x) { return x.id === id; });
+    bookings = bookings.filter(function (x) { return x.id !== id; });
+    if (b) {
+      const f = FACULTIES.find(function (x) { return x.id === b.lotId; });
+      addNotification(t('cancelMsg', { slot: b.slotNumber, lot: facultyName(f) }), 'info');
+    }
+    refreshAllViews();
+  }
+
+
+  /* ================= Booking History Modal ================= */
+  function openHistoryModal() {
+    renderHistoryModal();
+    document.getElementById('history-modal').classList.remove('hidden');
+  }
+  function renderHistoryModal() {
+    const container = document.getElementById('history-list');
+    if (!container) return;
+    if (!currentUser) { container.innerHTML = '<p class="text-center text-sm text-text/40 py-10">' + t('historyEmpty') + '</p>'; return; }
+    const now = new Date();
+    const mine = bookings.filter(function (b) { return b.owner === 'me'; }).sort(function (a, b) { return b.entry - a.entry; });
+    if (!mine.length) { container.innerHTML = '<p class="text-center text-sm text-text/40 py-10">' + t('historyEmpty') + '</p>'; return; }
+    container.innerHTML = mine.map(function (b) {
+      const f = FACULTIES.find(function (x) { return x.id === b.lotId; });
+      let statusLabel, badgeClass;
+      if (isBookingActive(b, now)) { statusLabel = t('statusOngoing'); badgeClass = 'bg-brick/10 text-brick'; }
+      else if (b.entry.getTime() > now.getTime()) { statusLabel = t('statusUpcoming'); badgeClass = 'bg-blue-50 text-blue-600'; }
+      else { statusLabel = t('statusCompleted'); badgeClass = 'bg-gray-100 text-gray-500'; }
+      return '<div class="bg-surface rounded-2xl p-4 flex items-center justify-between gap-3">' +
+        '<div class="flex-1 min-w-0"><p class="text-sm font-semibold truncate">' + facultyName(f) + ' &middot; ' + b.slotNumber + '</p>' +
+        '<p class="text-xs text-text/50">' + formatShortRange(b.entry, b.exit) + '</p></div>' +
+        '<span class="text-[11px] px-2 py-1 rounded-full ' + badgeClass + ' flex-shrink-0">' + statusLabel + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+
+  /* ================= Profile Stats ================= */
+  function renderProfileStats() {
+    if (!currentUser) return;
+    const now = new Date();
+    const mine = bookings.filter(function (b) { return b.owner === 'me'; });
+    const active = mine.filter(function (b) { return isBookingActive(b, now); });
+    document.getElementById('profile-active-count').textContent = active.length;
+    document.getElementById('profile-total-count').textContent = mine.length;
+  }
+
+
+  /* ================= Dashboard ================= */
+  function renderDashboard() {
+    const now = new Date();
+    const stats = getGlobalStats(now);
+    document.getElementById('stat-available').textContent = stats.available;
+    document.getElementById('stat-occupied').textContent = stats.occupied;
+    document.getElementById('stat-usage').textContent = stats.usage + '%';
+    document.getElementById('stat-updated').textContent = t('lastUpdatedPrefix') + ': ' + timeAgo(now);
+  }
+
+
+  /* ================= Slot Booking Modal ================= */
+  function openSlotModal(lotId) {
+    currentOpenLotId = lotId;
+    selectedSlotNumber = null;
+    document.getElementById('booking-error').classList.add('hidden');
+    const now = new Date();
+    const entryDefault = roundToNextMinutes(now, 5);
+    const exitDefault = new Date(entryDefault.getTime() + 60 * 60000);
+    const entryInput = document.getElementById('entry-time');
+    const exitInput = document.getElementById('exit-time');
+    entryInput.min = toLocalInputValue(now);
+    entryInput.max = toLocalInputValue(new Date(now.getTime() + ADVANCE_LIMIT_MS));
+    entryInput.value = toLocalInputValue(entryDefault);
+    exitInput.min = toLocalInputValue(entryDefault);
+    exitInput.value = toLocalInputValue(exitDefault);
+    document.getElementById('slot-number-display').value = '';
+    renderSlotModalBody(lotId);
+    document.getElementById('slot-modal').classList.remove('hidden');
+    lucide.createIcons();
+  }
+  function renderSlotModalBody(lotId) {
+    const now = new Date();
+    const f = FACULTIES.find(function (x) { return x.id === lotId; });
+    const stats = getLotStats(lotId, now);
+    document.getElementById('slot-modal-title').textContent = facultyName(f);
+    document.getElementById('slot-total').textContent = stats.total;
+    document.getElementById('slot-available').textContent = stats.available;
+    document.getElementById('slot-occupied').textContent = stats.occupied;
+
+
+    const grid = document.getElementById('slots-grid');
+    let html = '';
+    for (let i = 1; i <= f.total; i++) {
+      const occupied = isSlotActiveNow(lotId, i, now);
+      const isSelected = selectedSlotNumber === i;
+      let cls = 'bg-green-100 text-green-700 hover:bg-green-200 border-2 border-green-300';
+      if (occupied) cls = 'bg-brick/20 text-brick/50 cursor-not-allowed border-2 border-transparent';
+      else if (isSelected) cls = 'bg-accent/40 text-brick border-2 border-accent';
+      html += '<button type="button" data-slot="' + i + '" ' + (occupied ? 'disabled' : '') +
+        ' class="w-full aspect-square rounded-lg font-medium text-xs transition-all ' + cls + '">' + pad(i) + '</button>';
+    }
+    grid.innerHTML = html;
+  }
+  function selectSlot(slotNumber) {
+    selectedSlotNumber = slotNumber;
+    document.getElementById('slot-number-display').value = 'ช่องที่ ' + pad(slotNumber);
+    renderSlotModalBody(currentOpenLotId);
+  }
+  function closeSlotModal() {
+    document.getElementById('slot-modal').classList.add('hidden');
+    currentOpenLotId = null;
+    selectedSlotNumber = null;
+  }
+  function showBookingError(msg) {
+    const el = document.getElementById('booking-error');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function handleBookingSubmit(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('booking-error');
+    errEl.classList.add('hidden');
+
+
+    if (!currentUser) { showBookingError(t('errBookingLoginRequired')); return; }
+    if (!currentOpenLotId) return;
+    if (!selectedSlotNumber) { showBookingError(t('errBookingSelectSlot')); return; }
+
+
+    const entry = new Date(document.getElementById('entry-time').value);
+    const exit = new Date(document.getElementById('exit-time').value);
+    const now = new Date();
+
+
+    if (isNaN(entry.getTime()) || isNaN(exit.getTime())) { showBookingError(t('errBookingInvalidTime')); return; }
+    if (exit.getTime() <= entry.getTime()) { showBookingError(t('errBookingExitBeforeEntry')); return; }
+    if (entry.getTime() < now.getTime() - 60000) { showBookingError(t('errBookingPastEntry')); return; }
+    if (entry.getTime() - now.getTime() > ADVANCE_LIMIT_MS) { showBookingError(t('errBookingAdvanceLimit')); return; }
+    if (hasConflict(currentOpenLotId, selectedSlotNumber, entry, exit, null)) {
+      showBookingError(t('errBookingConflict'));
+      return;
+    }
+
+
+    bookings.push({ id: bookingIdSeq++, lotId: currentOpenLotId, slotNumber: selectedSlotNumber, entry: entry, exit: exit, owner: 'me' });
+
+
+    const f = FACULTIES.find(function (x) { return x.id === currentOpenLotId; });
+    addNotification(t('bookingSuccessMsg', { lot: facultyName(f), slot: selectedSlotNumber, range: formatShortRange(entry, exit) }), 'success');
+
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+    btn.textContent = t('bookSuccess');
+    btn.disabled = true;
+    btn.classList.add('bg-green-600');
+
+
+    refreshAllViews();
+
+
+    setTimeout(function () {
+      closeSlotModal();
+      btn.textContent = originalText;
+      btn.disabled = false;
+      btn.classList.remove('bg-green-600');
+    }, 1200);
+  }
+
+
+  /* ================= Map ================= */
+  function initMap() {
+    map = L.map('map-container', { zoomControl: true }).setView([16.4720, 102.8230], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+
+
+    userMarker = L.circleMarker([USER_LOCATION.lat, USER_LOCATION.lng], {
+      radius: 8, fillColor: '#3b82f6', color: '#1e40af', weight: 3, opacity: 1, fillOpacity: 0.85
+    }).addTo(map).bindPopup(t('yourLocation'));
+
+
+    FACULTIES.forEach(function (f) {
+      const marker = L.marker([f.lat, f.lng], { icon: buildIcon(f.id) }).addTo(map);
+      marker.on('click', function () { openSlotModal(f.id); });
+      markersById[f.id] = marker;
+    });
+    renderMapMarkers();
+  }
+  function buildIcon(lotId) {
+    const now = new Date();
+    const stats = getLotStats(lotId, now);
+    const info = getStatusInfo(stats.available, stats.total);
+    return L.divIcon({
+      html: '<div style="width:26px;height:26px;border-radius:50%;background:' + info.color + ';border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)" class="pulse-dot"></div>',
+      className: '', iconSize: [26, 26]
+    });
+  }
+  function renderMapMarkers() {
+    if (!map) return;
+    const now = new Date();
+    if (userMarker) userMarker.setPopupContent(t('yourLocation'));
+    FACULTIES.forEach(function (f) {
+      const marker = markersById[f.id];
+      if (!marker) return;
+      const stats = getLotStats(f.id, now);
+      const info = getStatusInfo(stats.available, stats.total);
+      marker.setIcon(L.divIcon({
+        html: '<div style="width:26px;height:26px;border-radius:50%;background:' + info.color + ';border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)" class="pulse-dot"></div>',
+        className: '', iconSize: [26, 26]
+      }));
+      marker.setPopupContent('<b>' + facultyName(f) + '</b>' + info.emoji + ' ' + info.label + ' ' + stats.available + '/' + stats.total + ' ' + t('carsUnit'));
+    });
+  }
+  function navigateTo(lotId) {
+    showPage('page-map');
+    if (!map) initMap();
+    setTimeout(function () { drawRouteAndInfo(lotId); }, 150);
+  }
+  function drawRouteAndInfo(lotId) {
+    const f = FACULTIES.find(function (x) { return x.id === lotId; });
+    if (!f) return;
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+
+
+    routeLine = L.polyline(
+      [[USER_LOCATION.lat, USER_LOCATION.lng], [f.lat, f.lng]],
+      { color: '#3b82f6', weight: 4, opacity: 0.75, dashArray: '6,8', lineCap: 'round' }
+    ).addTo(map);
+
+
+    const group = L.featureGroup([userMarker, routeLine]);
+    map.fitBounds(group.getBounds().pad(0.25));
+
+
+    const distanceKm = haversineKm(USER_LOCATION.lat, USER_LOCATION.lng, f.lat, f.lng);
+    const walkMin = Math.max(1, Math.round(distanceKm * 1000 / 80));
+    const stats = getLotStats(lotId, new Date());
+    const info = getStatusInfo(stats.available, stats.total);
+
+
+    const infoBox = document.getElementById('map-info');
+    infoBox.classList.remove('hidden');
+    infoBox.innerHTML =
+      '<div class="flex items-center justify-between mb-2"><h4 class="font-semibold text-sm">' + facultyName(f) + '</h4>' +
+      '<span class="px-2 py-1 rounded-full text-xs font-medium ' + info.bg + ' ' + info.text + '">' + info.emoji + ' ' + info.label + '</span></div>' +
+      '<p class="text-xs text-text/60 mb-3">' + t('distanceApproxLabel', { km: distanceKm.toFixed(2) }) + ' &middot; ' + t('walkApproxLabel', { min: walkMin }) + ' &middot; ' + t('availableSlotsOfLabel', { avail: stats.available, total: stats.total }) + '</p>' +
+      '<button data-detail="' + f.id + '" class="ripple w-full py-2.5 rounded-full bg-brick text-white text-xs font-semibold">' + t('bookParkingBtn') + '</button>';
+  }
+
+
+  /* ================= Global Refresh / Tick ================= */
+  function refreshAllViews() {
+    renderDashboard();
+    renderMyBookings();
+    renderNearby();
+    renderResults(document.getElementById('search-input').value);
+    if (map) renderMapMarkers();
+    if (currentOpenLotId && !document.getElementById('slot-modal').classList.contains('hidden')) renderSlotModalBody(currentOpenLotId);
+    if (!document.getElementById('history-modal').classList.contains('hidden')) renderHistoryModal();
+    renderNotifBadge();
+    if (document.getElementById('page-profile').classList.contains('active')) renderProfileStats();
+  }
+
+
+  function tick() {
+    if (!currentUser) return;
+    const now = new Date();
+    const currentActive = new Set();
+    bookings.forEach(function (b) { if (isBookingActive(b, now)) currentActive.add(b.lotId + ':' + b.slotNumber); });
+    prevActiveKeySet.forEach(function (key) {
+      if (!currentActive.has(key)) {
+        const parts = key.split(':');
+        const lotId = parts[0];
+        const slotNumber = parts[1];
+        const f = FACULTIES.find(function (x) { return x.id === lotId; });
+        if (f) addNotification(t('slotAvailableMsg', { slot: slotNumber, lot: facultyName(f) }), 'available');
+      }
+    });
+    prevActiveKeySet = currentActive;
+    refreshAllViews();
+  }
+
+
+  /* ================= Event Delegation ================= */
+  function attachEvents() {
+    document.addEventListener('click', function (e) {
+      const langBtn = e.target.closest('[data-lang]');
+      if (langBtn) { setLanguage(langBtn.dataset.lang); return; }
+
+
+      const quickBtn = e.target.closest('[data-quick]');
+      if (quickBtn) {
+        const action = quickBtn.dataset.quick;
+        if (action === 'map') { showPage('page-map'); }
+        else if (action === 'list') {
+          showPage('page-home');
+          setTimeout(function () {
+            const el = document.getElementById('parking-results');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 60);
+        } else if (action === 'history') { openHistoryModal(); }
+        else if (action === 'howto') { document.getElementById('howto-modal').classList.remove('hidden'); }
+        return;
+      }
+
+
+      const navEl = e.target.closest('[data-page]');
+      if (navEl) { showPage(navEl.dataset.page); return; }
+
+
+      const navigateBtn = e.target.closest('[data-navigate]');
+      if (navigateBtn) { navigateTo(navigateBtn.dataset.navigate); return; }
+
+
+      const detailBtn = e.target.closest('[data-detail]');
+      if (detailBtn) { openSlotModal(detailBtn.dataset.detail); return; }
+
+
+      const closeModalBtn = e.target.closest('[data-close-modal]');
+      if (closeModalBtn) {
+        const overlay = closeModalBtn.closest('.app-modal-overlay');
+        if (overlay) {
+          if (overlay.id === 'slot-modal') closeSlotModal();
+          else overlay.classList.add('hidden');
+        }
+        return;
+      }
+
+
+      const slotBtn = e.target.closest('[data-slot]');
+      if (slotBtn && !slotBtn.disabled) { selectSlot(parseInt(slotBtn.dataset.slot, 10)); return; }
+
+
+      const buildingEl = e.target.closest('[data-building]');
+      if (buildingEl) { selectBuildingFromAutocomplete(buildingEl.dataset.building); return; }
+
+
+      const cancelBtn = e.target.closest('[data-cancel-booking]');
+      if (cancelBtn) { cancelBooking(parseInt(cancelBtn.dataset.cancelBooking, 10)); return; }
+
+
+      const toggleEl = e.target.closest('[data-toggle]');
+      if (toggleEl) { toggleEl.classList.toggle('on'); toggleEl.classList.toggle('off'); return; }
+
+
+      if (e.target.classList.contains('app-modal-overlay')) {
+        e.target.classList.add('hidden');
+        if (e.target.id === 'slot-modal') closeSlotModal();
+        return;
+      }
+
+
+      if (!e.target.closest('#search-input') && !e.target.closest('#autocomplete-list')) {
+        document.getElementById('autocomplete-list').classList.add('hidden');
+      }
+    });
+
+
+    document.getElementById('search-input').addEventListener('input', function (e) { handleSearchInput(e.target.value); });
+    document.getElementById('search-input').addEventListener('focus', function (e) { handleSearchInput(e.target.value); });
+    document.getElementById('booking-form').addEventListener('submit', handleBookingSubmit);
+    document.getElementById('entry-time').addEventListener('change', function (e) {
+      const exitInput = document.getElementById('exit-time');
+      exitInput.min = e.target.value;
+      if (exitInput.value && new Date(exitInput.value) <= new Date(e.target.value)) {
+        const newExit = new Date(new Date(e.target.value).getTime() + 60 * 60000);
+        exitInput.value = toLocalInputValue(newExit);
+      }
+    });
+
+
+    document.querySelectorAll('.tab-pill').forEach(function (btn) { btn.addEventListener('click', function () { switchTab(btn.dataset.tab); }); });
+    document.getElementById('toggle-password').addEventListener('click', togglePasswordVisibility);
+    document.getElementById('login-form').addEventListener('submit', handleLoginSubmit);
+    document.getElementById('guest-btn').addEventListener('click', handleGuestLogin);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.getElementById('forgot-link').addEventListener('click', function () {
+      showToast(t('forgotPasswordMsg'));
+    });
+
+
+    ['input-student-id', 'input-email', 'input-password'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () {
+        const map2 = { 'input-student-id': 'err-student-id', 'input-email': 'err-email', 'input-password': 'err-password' };
+        if (this.value.trim ? this.value.trim() : this.value) setFieldError(id, map2[id], '');
+      });
+    });
+  }
+
+
+  /* ================= Init ================= */
+  document.addEventListener('DOMContentLoaded', function () {
+    seedDemoBookings();
+    attachEvents();
+    setLanguage('th');
+    tickInterval = setInterval(tick, 5000);
+  });
+})();
+</script>
+</body>
+</html>
